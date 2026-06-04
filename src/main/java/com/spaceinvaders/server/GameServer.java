@@ -29,6 +29,7 @@ public class GameServer implements GameSubject {
     private final int port;
     private final GameState gameState;
     private final MessageParser messageParser;
+    private final NetworkCommandAdapter commandAdapter;
 
     private final List<GameObserver> observers;
     private final List<ClientHandler> clients;
@@ -39,6 +40,7 @@ public class GameServer implements GameSubject {
         this.port = port;
         this.gameState = new GameState();
         this.messageParser = new MessageParser();
+        this.commandAdapter = new NetworkCommandAdapter();
 
         this.observers = new CopyOnWriteArrayList<>();
         this.clients = new CopyOnWriteArrayList<>();
