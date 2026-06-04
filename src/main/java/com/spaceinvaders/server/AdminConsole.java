@@ -3,12 +3,16 @@ package com.spaceinvaders.server;
 import com.spaceinvaders.protocol.AdminCommandParser;
 import com.spaceinvaders.protocol.Message;
 
-import java.util.NoSuchElementException;
 import java.util.Scanner;
 
 /**
  * Consola administrativa del servidor.
- * Permite escribir los mensajes pedidos en la especificación del proyecto.
+ *
+ * Permite ingresar los comandos administrativos solicitados:
+ * - Crear (X,Y,Pts)
+ * - OVNI I-D 1500
+ * - Velocidad 100
+ * - Bunkers 70%
  */
 public class AdminConsole implements Runnable {
     private final GameServer server;
@@ -28,11 +32,22 @@ public class AdminConsole implements Runnable {
         while (true) {
             try {
                 System.out.print("admin> ");
-                String line = scanner.nextLine();
+
+                if (!scanner.hasNextLine()) {
+                    server.stop();
+                    break;
+                }
+
+                String line = scanner.nextLine().trim();
+
+                if (line.isEmpty()) {
+                    continue;
+                }
 
                 if (line.equalsIgnoreCase("salir")) {
                     System.out.println("Cerrando servidor...");
-                    System.exit(0);
+                    server.stop();
+                    break;
                 }
 
                 if (line.equalsIgnoreCase("ayuda")) {
@@ -43,9 +58,6 @@ public class AdminConsole implements Runnable {
                 Message message = adminCommandParser.parseAdminCommand(line);
                 server.processAdminMessage(message);
 
-            } catch (NoSuchElementException exception) {
-                System.out.println("Entrada estándar cerrada. La consola administrativa se detendrá.");
-                break;
             } catch (Exception exception) {
                 System.out.println("Comando inválido: " + exception.getMessage());
             }

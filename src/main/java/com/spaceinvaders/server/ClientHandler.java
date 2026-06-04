@@ -8,19 +8,22 @@ import com.spaceinvaders.protocol.MessageParser;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Atiende a un cliente conectado.
+ *
  * Cada cliente tiene su propio hilo.
+ * También funciona como observador del estado del juego.
  */
 public class ClientHandler implements Runnable, GameObserver {
     private final Socket socket;
     private final GameServer server;
     private final MessageParser messageParser;
+    private final AtomicBoolean closed;
 
     private BufferedReader input;
     private PrintWriter output;
@@ -33,6 +36,7 @@ public class ClientHandler implements Runnable, GameObserver {
         this.socket = socket;
         this.server = server;
         this.messageParser = new MessageParser();
+        this.closed = new AtomicBoolean(false);
 
         this.role = null;
         this.playerId = 0;
@@ -46,10 +50,7 @@ public class ClientHandler implements Runnable, GameObserver {
                     new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8)
             );
 
-            output = new PrintWriter(
-                    new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8),
-                    true
-            );
+            output = new PrintWriter(socket.getOutputStream(), true, StandardCharsets.UTF_8);
 
             String helloLine = input.readLine();
 
@@ -60,20 +61,27 @@ public class ClientHandler implements Runnable, GameObserver {
 
             String line;
 
-            while ((line = input.readLine()) != null) {
+            while (!closed.get() && (line = input.readLine()) != null) {
                 server.processClientLine(this, line);
             }
 
         } catch (IOException exception) {
-            System.out.println("Cliente desconectado inesperadamente: " + exception.getMessage());
+            if (!closed.get()) {
+                System.out.println("Cliente desconectado inesperadamente: " + exception.getMessage());
+            }
         } finally {
-            server.unregisterClient(this);
             close();
+            server.unregisterClient(this);
         }
     }
 
     private boolean handleHello(String helloLine) {
         try {
+            if (helloLine == null || helloLine.isBlank()) {
+                sendError("EXPECTED_HELLO", "El primer mensaje debe ser HELLO");
+                return false;
+            }
+
             Message message = messageParser.parse(helloLine);
 
             if (!message.getType().equals("HELLO")) {
@@ -117,6 +125,10 @@ public class ClientHandler implements Runnable, GameObserver {
     }
 
     public void sendMessage(String message) {
+        if (closed.get()) {
+            return;
+        }
+
         if (output != null) {
             output.println(message);
             output.flush();
@@ -124,7 +136,7 @@ public class ClientHandler implements Runnable, GameObserver {
     }
 
     public void sendError(String code, String message) {
-        String safeMessage = message == null ? "Sin_detalle" : message.replace(" ", "_");
+        String safeMessage = message == null ? "Error" : message.replace(" ", "_");
 
         sendMessage(
                 new MessageBuilder("ERROR")
@@ -140,6 +152,10 @@ public class ClientHandler implements Runnable, GameObserver {
     }
 
     public void close() {
+        if (!closed.compareAndSet(false, true)) {
+            return;
+        }
+
         try {
             socket.close();
         } catch (IOException ignored) {

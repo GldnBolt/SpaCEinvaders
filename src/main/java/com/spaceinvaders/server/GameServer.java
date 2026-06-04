@@ -3,25 +3,32 @@ package com.spaceinvaders.server;
 import com.spaceinvaders.game.GameLoop;
 import com.spaceinvaders.model.Alien;
 import com.spaceinvaders.model.GameState;
+import com.spaceinvaders.patterns.adapter.NetworkCommand;
+import com.spaceinvaders.patterns.adapter.NetworkCommandAdapter;
 import com.spaceinvaders.patterns.observer.GameObserver;
 import com.spaceinvaders.patterns.observer.GameSubject;
 import com.spaceinvaders.protocol.Message;
 import com.spaceinvaders.protocol.MessageBuilder;
 import com.spaceinvaders.protocol.MessageParser;
-import com.spaceinvaders.patterns.adapter.NetworkCommand;
-import com.spaceinvaders.patterns.adapter.NetworkCommandAdapter;
-import com.spaceinvaders.patterns.adapter.NetworkCommandType;
 
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Servidor principal del juego.
- * Acepta clientes, procesa comandos y notifica cambios de estado.
+ *
+ * Responsabilidades:
+ * - abrir el socket del servidor,
+ * - aceptar clientes,
+ * - registrar jugadores y espectadores,
+ * - procesar comandos,
+ * - actualizar el estado del juego,
+ * - notificar a los clientes conectados.
  */
 public class GameServer implements GameSubject {
     private static final int MAX_PLAYERS = 2;
@@ -36,6 +43,9 @@ public class GameServer implements GameSubject {
 
     private final AtomicInteger nextPlayerId;
 
+    private volatile boolean running;
+    private ServerSocket serverSocket;
+
     public GameServer(int port) {
         this.port = port;
         this.gameState = new GameState();
@@ -46,9 +56,19 @@ public class GameServer implements GameSubject {
         this.clients = new CopyOnWriteArrayList<>();
 
         this.nextPlayerId = new AtomicInteger(1);
+        this.running = false;
     }
 
     public void start() throws IOException {
+        /*
+         * Importante:
+         * Primero intentamos abrir el ServerSocket.
+         * Si el puerto está ocupado, fallará aquí y NO se abrirá AdminConsole.
+         * Esto evita hilos pegados cuando hay error de puerto ocupado.
+         */
+        serverSocket = new ServerSocket(port);
+        running = true;
+
         Thread gameLoopThread = new Thread(new GameLoop(this), "GameLoop");
         gameLoopThread.setDaemon(true);
         gameLoopThread.start();
@@ -56,11 +76,11 @@ public class GameServer implements GameSubject {
         Thread adminThread = new Thread(new AdminConsole(this), "AdminConsole");
         adminThread.start();
 
-        try (ServerSocket serverSocket = new ServerSocket(port)) {
-            System.out.println("Servidor spaCEinvaders iniciado en puerto " + port);
-            System.out.println("Esperando clientes...");
+        System.out.println("Servidor spaCEinvaders iniciado en puerto " + port);
+        System.out.println("Esperando clientes...");
 
-            while (true) {
+        while (running) {
+            try {
                 Socket socket = serverSocket.accept();
 
                 ClientHandler handler = new ClientHandler(socket, this);
@@ -68,7 +88,39 @@ public class GameServer implements GameSubject {
 
                 Thread clientThread = new Thread(handler, "ClientHandler");
                 clientThread.start();
+
+            } catch (SocketException exception) {
+                if (running) {
+                    System.err.println("Error de socket en servidor: " + exception.getMessage());
+                }
             }
+        }
+
+        System.out.println("Servidor detenido.");
+    }
+
+    public synchronized void stop() {
+        if (!running) {
+            return;
+        }
+
+        running = false;
+
+        System.out.println("Cerrando clientes conectados...");
+
+        for (ClientHandler client : clients) {
+            client.close();
+        }
+
+        clients.clear();
+        observers.clear();
+
+        try {
+            if (serverSocket != null && !serverSocket.isClosed()) {
+                serverSocket.close();
+            }
+        } catch (IOException exception) {
+            System.err.println("Error cerrando ServerSocket: " + exception.getMessage());
         }
     }
 
@@ -92,23 +144,34 @@ public class GameServer implements GameSubject {
             return RegistrationResult.success(playerId);
         }
 
-        addObserver(clientHandler);
+        if (role == ClientRole.SPECTATOR) {
+            addObserver(clientHandler);
 
-        System.out.println("Espectador registrado: " + name);
+            System.out.println("Espectador registrado: " + name);
 
-        return RegistrationResult.success(0);
+            return RegistrationResult.success(0);
+        }
+
+        return RegistrationResult.failure("Rol no reconocido");
     }
 
     public synchronized void unregisterClient(ClientHandler clientHandler) {
+        if (clientHandler == null) {
+            return;
+        }
+
         removeObserver(clientHandler);
         clients.remove(clientHandler);
 
         if (clientHandler.getRole() == ClientRole.PLAYER) {
             gameState.removePlayer(clientHandler.getPlayerId());
             broadcastState();
+            System.out.println("Jugador desconectado: " + clientHandler.getName());
+        } else if (clientHandler.getRole() == ClientRole.SPECTATOR) {
+            System.out.println("Espectador desconectado: " + clientHandler.getName());
+        } else {
+            System.out.println("Cliente desconectado antes de registrarse.");
         }
-
-        System.out.println("Cliente desconectado");
     }
 
     public synchronized void processClientLine(ClientHandler clientHandler, String line) {
@@ -167,40 +230,6 @@ public class GameServer implements GameSubject {
         }
     }
 
-    private void processAction(ClientHandler clientHandler, Message message) {
-        String command = message.get("cmd");
-        int playerId = clientHandler.getPlayerId();
-
-        if (command == null) {
-            clientHandler.sendError("BAD_ACTION", "La acción no tiene cmd");
-            return;
-        }
-
-        switch (command) {
-            case "MOVE_LEFT" -> gameState.movePlayerLeft(playerId);
-            case "MOVE_RIGHT" -> gameState.movePlayerRight(playerId);
-            case "FIRE" -> gameState.firePlayerShot(playerId);
-            default -> {
-                clientHandler.sendError("BAD_ACTION", "Acción no reconocida: " + command);
-                return;
-            }
-        }
-
-        broadcastState();
-    }
-
-    private void processAlienHit(ClientHandler clientHandler, Message message) {
-        int alienId = message.getInt("alienId", -1);
-
-        if (alienId == -1) {
-            clientHandler.sendError("BAD_ALIEN_HIT", "Falta alienId");
-            return;
-        }
-
-        gameState.registerAlienHit(clientHandler.getPlayerId(), alienId);
-        broadcastState();
-    }
-
     public synchronized void processAdminMessage(Message message) {
         try {
             switch (message.getType()) {
@@ -226,6 +255,11 @@ public class GameServer implements GameSubject {
                 case "ADMIN_CREATE_UFO" -> {
                     String direction = message.get("direction");
                     int points = message.getInt("points", 0);
+
+                    if (direction == null) {
+                        System.out.println("Dirección de OVNI inválida");
+                        return;
+                    }
 
                     gameState.createUFO(direction, points);
 
@@ -297,7 +331,9 @@ public class GameServer implements GameSubject {
 
     @Override
     public void addObserver(GameObserver observer) {
-        observers.add(observer);
+        if (observer != null && !observers.contains(observer)) {
+            observers.add(observer);
+        }
     }
 
     @Override
