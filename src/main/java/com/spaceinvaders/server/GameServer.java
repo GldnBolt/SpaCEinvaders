@@ -8,6 +8,9 @@ import com.spaceinvaders.patterns.observer.GameSubject;
 import com.spaceinvaders.protocol.Message;
 import com.spaceinvaders.protocol.MessageBuilder;
 import com.spaceinvaders.protocol.MessageParser;
+import com.spaceinvaders.patterns.adapter.NetworkCommand;
+import com.spaceinvaders.patterns.adapter.NetworkCommandAdapter;
+import com.spaceinvaders.patterns.adapter.NetworkCommandType;
 
 import java.io.IOException;
 import java.net.ServerSocket;
