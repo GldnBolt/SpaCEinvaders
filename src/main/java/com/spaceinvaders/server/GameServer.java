@@ -116,7 +116,7 @@ public class GameServer implements GameSubject {
             Message message = messageParser.parse(line);
 
             if (clientHandler.getRole() == ClientRole.SPECTATOR &&
-                    message.getType().equals("ACTION")) {
+                    (message.getType().equals("ACTION") || message.getType().equals("ALIEN_HIT"))) {
 
                 clientHandler.sendError(
                         "SPECTATOR_CANNOT_PLAY",
@@ -126,13 +126,39 @@ public class GameServer implements GameSubject {
                 return;
             }
 
-            switch (message.getType()) {
-                case "ACTION" -> processAction(clientHandler, message);
-                case "ALIEN_HIT" -> processAlienHit(clientHandler, message);
-                case "DISCONNECT" -> clientHandler.close();
-                default -> clientHandler.sendError(
+            NetworkCommand command = commandAdapter.adapt(message);
+
+            switch (command.getType()) {
+                case MOVE_LEFT -> {
+                    gameState.movePlayerLeft(clientHandler.getPlayerId());
+                    broadcastState();
+                }
+
+                case MOVE_RIGHT -> {
+                    gameState.movePlayerRight(clientHandler.getPlayerId());
+                    broadcastState();
+                }
+
+                case FIRE -> {
+                    gameState.firePlayerShot(clientHandler.getPlayerId());
+                    broadcastState();
+                }
+
+                case ALIEN_HIT -> {
+                    if (command.getAlienId() == -1) {
+                        clientHandler.sendError("BAD_ALIEN_HIT", "Falta alienId");
+                        return;
+                    }
+
+                    gameState.registerAlienHit(clientHandler.getPlayerId(), command.getAlienId());
+                    broadcastState();
+                }
+
+                case DISCONNECT -> clientHandler.close();
+
+                case UNKNOWN -> clientHandler.sendError(
                         "UNKNOWN_MESSAGE",
-                        "Mensaje no reconocido: " + message.getType()
+                        "Mensaje no reconocido"
                 );
             }
 
