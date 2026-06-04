@@ -9,6 +9,9 @@ import com.spaceinvaders.model.UFO;
 /**
  * Patrón Factory.
  * Centraliza la creación de entidades del juego.
+ *
+ * Esto ayuda a que el servidor no cree objetos directamente en todas partes,
+ * sino que use una clase especializada para construir las entidades.
  */
 public class EntityFactory {
 
@@ -31,3 +34,4 @@ public class EntityFactory {
     public Projectile createProjectile(int id, int ownerId, int x, int y, boolean fromPlayer) {
         return new Projectile(id, ownerId, x, y, fromPlayer);
     }
+}
