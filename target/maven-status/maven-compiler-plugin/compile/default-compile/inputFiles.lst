@@ -6,6 +6,9 @@ C:\Users\Xpc\Documents\GitHub\Paradigmas\Tarea 4\SpaCEinvaders\SpaCEinvaders\src
 C:\Users\Xpc\Documents\GitHub\Paradigmas\Tarea 4\SpaCEinvaders\SpaCEinvaders\src\main\java\com\spaceinvaders\model\Player.java
 C:\Users\Xpc\Documents\GitHub\Paradigmas\Tarea 4\SpaCEinvaders\SpaCEinvaders\src\main\java\com\spaceinvaders\model\Projectile.java
 C:\Users\Xpc\Documents\GitHub\Paradigmas\Tarea 4\SpaCEinvaders\SpaCEinvaders\src\main\java\com\spaceinvaders\model\UFO.java
+C:\Users\Xpc\Documents\GitHub\Paradigmas\Tarea 4\SpaCEinvaders\SpaCEinvaders\src\main\java\com\spaceinvaders\patterns\adapter\NetworkCommand.java
+C:\Users\Xpc\Documents\GitHub\Paradigmas\Tarea 4\SpaCEinvaders\SpaCEinvaders\src\main\java\com\spaceinvaders\patterns\adapter\NetworkCommandAdapter.java
+C:\Users\Xpc\Documents\GitHub\Paradigmas\Tarea 4\SpaCEinvaders\SpaCEinvaders\src\main\java\com\spaceinvaders\patterns\adapter\NetworkCommandType.java
 C:\Users\Xpc\Documents\GitHub\Paradigmas\Tarea 4\SpaCEinvaders\SpaCEinvaders\src\main\java\com\spaceinvaders\patterns\factory\EntityFactory.java
 C:\Users\Xpc\Documents\GitHub\Paradigmas\Tarea 4\SpaCEinvaders\SpaCEinvaders\src\main\java\com\spaceinvaders\patterns\observer\GameObserver.java
 C:\Users\Xpc\Documents\GitHub\Paradigmas\Tarea 4\SpaCEinvaders\SpaCEinvaders\src\main\java\com\spaceinvaders\patterns\observer\GameSubject.java
