@@ -28,7 +28,6 @@ public class EntityFactory {
         return new UFO(active, x, y, direction, points);
     }
 
-    public Projectile createProjectile(int id, int x, int y) {
-        return new Projectile(id, x, y);
+    public Projectile createProjectile(int id, int ownerId, int x, int y, boolean fromPlayer) {
+        return new Projectile(id, ownerId, x, y, fromPlayer);
     }
-}

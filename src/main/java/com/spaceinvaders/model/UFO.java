@@ -38,11 +38,11 @@ public class UFO {
         return points;
     }
 
-    public void move(int deltaX) {
-        x += deltaX;
+    public void move(int dx) {
+        this.x += dx;
     }
 
     public void deactivate() {
-        active = false;
+        this.active = false;
     }
 }

@@ -1,5 +1,6 @@
 package com.spaceinvaders.server;
 
+import com.spaceinvaders.game.GameLoop;
 import com.spaceinvaders.model.Alien;
 import com.spaceinvaders.model.GameState;
 import com.spaceinvaders.patterns.observer.GameObserver;
@@ -43,8 +44,11 @@ public class GameServer implements GameSubject {
     }
 
     public void start() throws IOException {
+        Thread gameLoopThread = new Thread(new GameLoop(this), "GameLoop");
+        gameLoopThread.setDaemon(true);
+        gameLoopThread.start();
+
         Thread adminThread = new Thread(new AdminConsole(this), "AdminConsole");
-        adminThread.setDaemon(true);
         adminThread.start();
 
         try (ServerSocket serverSocket = new ServerSocket(port)) {
@@ -57,7 +61,7 @@ public class GameServer implements GameSubject {
                 ClientHandler handler = new ClientHandler(socket, this);
                 clients.add(handler);
 
-                Thread clientThread = new Thread(handler, "ClientHandler-" + socket.getPort());
+                Thread clientThread = new Thread(handler, "ClientHandler");
                 clientThread.start();
             }
         }
@@ -106,11 +110,14 @@ public class GameServer implements GameSubject {
         try {
             Message message = messageParser.parse(line);
 
-            if (clientHandler.getRole() == ClientRole.SPECTATOR && message.getType().equals("ACTION")) {
+            if (clientHandler.getRole() == ClientRole.SPECTATOR &&
+                    message.getType().equals("ACTION")) {
+
                 clientHandler.sendError(
                         "SPECTATOR_CANNOT_PLAY",
                         "El espectador no puede enviar acciones"
                 );
+
                 return;
             }
 
@@ -130,15 +137,10 @@ public class GameServer implements GameSubject {
     }
 
     private void processAction(ClientHandler clientHandler, Message message) {
-        if (clientHandler.getRole() != ClientRole.PLAYER) {
-            clientHandler.sendError("ONLY_PLAYERS", "Solo los jugadores pueden enviar acciones");
-            return;
-        }
-
         String command = message.get("cmd");
         int playerId = clientHandler.getPlayerId();
 
-        if (command == null || command.isBlank()) {
+        if (command == null) {
             clientHandler.sendError("BAD_ACTION", "La acción no tiene cmd");
             return;
         }
@@ -157,11 +159,6 @@ public class GameServer implements GameSubject {
     }
 
     private void processAlienHit(ClientHandler clientHandler, Message message) {
-        if (clientHandler.getRole() != ClientRole.PLAYER) {
-            clientHandler.sendError("ONLY_PLAYERS", "Solo los jugadores pueden reportar impactos");
-            return;
-        }
-
         int alienId = message.getInt("alienId", -1);
 
         if (alienId == -1) {
@@ -239,11 +236,23 @@ public class GameServer implements GameSubject {
                     broadcastState();
                 }
 
-                default -> System.out.println("Comando administrativo no reconocido: " + message.getType());
+                default -> System.out.println("Comando administrativo no reconocido");
             }
 
         } catch (Exception exception) {
             System.out.println("Error procesando comando administrativo: " + exception.getMessage());
+        }
+    }
+
+    /**
+     * Método llamado por GameLoop.
+     * Si el estado cambió, se notifica a todos los clientes.
+     */
+    public synchronized void updateGameFrame() {
+        boolean changed = gameState.updateFrame();
+
+        if (changed) {
+            broadcastState();
         }
     }
 

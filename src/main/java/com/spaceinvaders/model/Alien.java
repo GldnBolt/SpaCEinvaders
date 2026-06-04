@@ -1,7 +1,7 @@
 package com.spaceinvaders.model;
 
 /**
- * Representa un extraterrestre.
+ * Representa un extraterrestre del juego.
  */
 public class Alien {
     private final int id;
@@ -38,9 +38,9 @@ public class Alien {
         return alive;
     }
 
-    public void move(int deltaX, int deltaY) {
-        x += deltaX;
-        y += deltaY;
+    public void move(int dx, int dy) {
+        this.x += dx;
+        this.y += dy;
     }
 
     public void destroy() {
