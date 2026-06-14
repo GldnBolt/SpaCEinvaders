@@ -15,7 +15,7 @@
 #define MAX_DIRECTION_LEN 8
 
 /* Coordenadas logicas usadas por el servidor */
-#define WORLD_WIDTH 640
+#define WORLD_WIDTH 800
 #define WORLD_HEIGHT 480
 
 /* Tamano de la vista en consola */

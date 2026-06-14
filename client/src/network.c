@@ -131,3 +131,26 @@ void cleanup_sockets(void) {
     WSACleanup();
 #endif
 }
+
+
+int socket_has_data(int sockfd) {
+    fd_set readfds;
+    struct timeval timeout;
+
+    FD_ZERO(&readfds);
+
+#ifdef _WIN32
+    FD_SET((SOCKET)sockfd, &readfds);
+#else
+    FD_SET(sockfd, &readfds);
+#endif
+
+    timeout.tv_sec = 0;
+    timeout.tv_usec = 0;
+
+#ifdef _WIN32
+    return select(0, &readfds, NULL, NULL, &timeout) > 0;
+#else
+    return select(sockfd + 1, &readfds, NULL, NULL, &timeout) > 0;
+#endif
+}

@@ -19,12 +19,13 @@ public class GameState {
     private static final int SCREEN_HEIGHT = 480;
 
     private static final int PLAYER_Y = 430;
-    private static final int PLAYER_WIDTH = 40;
-    private static final int PLAYER_HEIGHT = 25;
+    private static final int PLAYER_WIDTH = 55;
+    private static final int PLAYER_HEIGHT = 35;
     private static final int PLAYER_STEP = 20;
 
-    private static final int ALIEN_WIDTH = 30;
-    private static final int ALIEN_HEIGHT = 25;
+    private static final int ALIEN_WIDTH = 40;
+    private static final int ALIEN_HEIGHT = 32;
+    private static final int HITBOX_PADDING = 10;
     private static final int ALIEN_STEP = 15;
     private static final int ALIEN_DROP = 20;
 
@@ -363,8 +364,11 @@ public class GameState {
                 continue;
             }
 
-            checkEnemyShotAgainstPlayers(shot);
             checkProjectileAgainstBunkers(shot, 15);
+
+	    if (shot.isActive()) {
+    		checkEnemyShotAgainstPlayers(shot);
+	    }
         }
 
         enemyShots.removeIf(shot -> !shot.isActive());
@@ -581,10 +585,10 @@ public class GameState {
             int rectWidth,
             int rectHeight
     ) {
-        return pointX >= rectX &&
-                pointX <= rectX + rectWidth &&
-                pointY >= rectY &&
-                pointY <= rectY + rectHeight;
+        return pointX >= rectX - HITBOX_PADDING &&
+                pointX <= rectX + rectWidth + HITBOX_PADDING &&
+                pointY >= rectY - HITBOX_PADDING &&
+                pointY <= rectY + rectHeight + HITBOX_PADDING;
     }
 
     public synchronized String toProtocolMessage() {
