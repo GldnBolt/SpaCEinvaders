@@ -3,12 +3,14 @@
 #include <string.h>
 
 #ifdef _WIN32
-#include <conio.h>
+#include <winsock2.h>
 #include <windows.h>
+#include <conio.h>
 #else
 #include <unistd.h>
 #include <termios.h>
 #include <fcntl.h>
+#include <sys/select.h>
 #endif
 
 #include "constants.h"
@@ -50,12 +52,43 @@ static int key_pressed(void) { return _kbhit(); }
 static int read_key(void) { return _getch(); }
 #endif
 
+static void sleep_ms(int milliseconds) {
+#ifdef _WIN32
+    Sleep((DWORD)milliseconds);
+#else
+    usleep((useconds_t)milliseconds * 1000);
+#endif
+}
+
+static int socket_has_data(int sockfd) {
+    fd_set readfds;
+    struct timeval timeout;
+
+    FD_ZERO(&readfds);
+
+#ifdef _WIN32
+    FD_SET((SOCKET)sockfd, &readfds);
+#else
+    FD_SET(sockfd, &readfds);
+#endif
+
+    timeout.tv_sec = 0;
+    timeout.tv_usec = 0;
+
+#ifdef _WIN32
+    return select(0, &readfds, NULL, NULL, &timeout) > 0;
+#else
+    return select(sockfd + 1, &readfds, NULL, NULL, &timeout) > 0;
+#endif
+}
 
 #ifdef _WIN32
 static void enable_ansi_console(void) {
     HANDLE output = GetStdHandle(STD_OUTPUT_HANDLE);
     DWORD mode = 0;
+
     SetConsoleOutputCP(CP_UTF8);
+
     if (GetConsoleMode(output, &mode)) {
         mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
         SetConsoleMode(output, mode);
@@ -109,6 +142,12 @@ int main(int argc, char *argv[]) {
 
     sockfd = connect_to_server(SERVER_IP, SERVER_PORT);
 
+    if (sockfd < 0) {
+        printf("No se pudo conectar al servidor.\n");
+        cleanup_sockets();
+        return 1;
+    }
+
     snprintf(buffer, sizeof(buffer), "HELLO|role=%s|name=ClienteC\n", role);
     send_message(sockfd, buffer);
 
@@ -135,42 +174,47 @@ int main(int argc, char *argv[]) {
     enter_game_screen();
 
     while (1) {
-        int received = receive_line(sockfd, buffer, sizeof(buffer));
-
-        if (received <= 0) {
-            break;
-        }
-
-        if (parse_state_message(buffer, &state)) {
-            render_game(&state, localPlayerId, role);
-        } else if (strncmp(buffer, "ERROR|", 6) == 0) {
-            printf("\nMensaje de error del servidor: %s\n", buffer);
-        }
-
         if (key_pressed()) {
             int ch = read_key();
 
-            if (ch == KEY_QUIT) {
+            if (ch == KEY_QUIT || ch == 'Q') {
                 send_disconnect(sockfd, localPlayerId);
                 break;
             }
 
             if (!isSpectator) {
-                if (ch == KEY_LEFT) {
+                if (ch == KEY_LEFT || ch == 'A') {
                     send_action(sockfd, localPlayerId, "MOVE_LEFT");
-                } else if (ch == KEY_RIGHT) {
+                } else if (ch == KEY_RIGHT || ch == 'D') {
                     send_action(sockfd, localPlayerId, "MOVE_RIGHT");
-                } else if (ch == KEY_FIRE) {
+                } else if (ch == KEY_FIRE || ch == 'F' || ch == ' ') {
                     send_action(sockfd, localPlayerId, "FIRE");
                 }
             }
         }
+
+        if (socket_has_data(sockfd)) {
+            int received = receive_line(sockfd, buffer, sizeof(buffer));
+
+            if (received <= 0) {
+                break;
+            }
+
+            if (parse_state_message(buffer, &state)) {
+                render_game(&state, localPlayerId, role);
+            } else if (strncmp(buffer, "ERROR|", 6) == 0) {
+                printf("\nMensaje de error del servidor: %s\n", buffer);
+            }
+        }
+
+        sleep_ms(15);
     }
 
     leave_game_screen();
     disable_raw_keyboard();
     close_socket(sockfd);
     cleanup_sockets();
+
     printf("Cliente C cerrado.\n");
     return 0;
 }
