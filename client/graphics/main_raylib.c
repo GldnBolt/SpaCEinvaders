@@ -1,14 +1,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 #include "raylib.h"
 #include "constants.h"
 #include "game.h"
+#include "serial_uart.h"
+
 
 /*
    No incluimos windows.h, winsock2.h ni network.h aquí porque chocan con raylib.
-   Estas funciones ya existen en client/src/network.c.
+   ya existen en client/src/network.c.
 */
 int init_sockets(void);
 int connect_to_server(const char *ip, int port);
@@ -67,6 +70,55 @@ static void send_disconnect_graphic(int sockfd, int playerId) {
     snprintf(message, sizeof(message), "DISCONNECT|playerId=%d\n", playerId);
     send_message(sockfd, message);
 }
+
+
+static int equals_ignore_case(const char *a, const char *b) {
+    while (*a != '\0' && *b != '\0') {
+        if (toupper((unsigned char)*a) != toupper((unsigned char)*b)) {
+            return 0;
+        }
+
+        a++;
+        b++;
+    }
+
+    return *a == '\0' && *b == '\0';
+}
+
+static void handle_uart_command(int sockfd, int playerId, const char *command) {
+    if (command == NULL || command[0] == '\0') {
+        return;
+    }
+
+    if (equals_ignore_case(command, "L") ||
+        equals_ignore_case(command, "LEFT") ||
+        equals_ignore_case(command, "A") ||
+        equals_ignore_case(command, "IZQ") ||
+        equals_ignore_case(command, "IZQUIERDA")) {
+        send_action_graphic(sockfd, playerId, "MOVE_LEFT");
+        return;
+    }
+
+    if (equals_ignore_case(command, "R") ||
+        equals_ignore_case(command, "RIGHT") ||
+        equals_ignore_case(command, "D") ||
+        equals_ignore_case(command, "DER") ||
+        equals_ignore_case(command, "DERECHA")) {
+        send_action_graphic(sockfd, playerId, "MOVE_RIGHT");
+        return;
+    }
+
+    if (equals_ignore_case(command, "F") ||
+        equals_ignore_case(command, "FIRE") ||
+        equals_ignore_case(command, "SHOOT") ||
+        equals_ignore_case(command, "DISPARAR")) {
+        send_action_graphic(sockfd, playerId, "FIRE");
+        return;
+    }
+
+    printf("Comando UART ignorado: %s\n", command);
+}
+
 
 static int count_alive_aliens(const GameState *state) {
     int alive = 0;
@@ -304,13 +356,26 @@ int main(int argc, char *argv[]) {
     int sockfd;
     int localPlayerId = 0;
     int isSpectator = 0;
+    int useUart = 0;
+    int uartBaud = 115200;
+    char uartPort[64] = "";
+    SerialPort uart = SERIAL_INVALID;
     char role[16] = "PLAYER";
     char buffer[MAX_MESSAGE_LEN];
     GameState state;
 
-    if (argc >= 2 && strcmp(argv[1], "spectator") == 0) {
-        isSpectator = 1;
-        strcpy(role, "SPECTATOR");
+    for (int i = 1; i < argc; i++) {
+    	if (strcmp(argv[i], "spectator") == 0) {
+            isSpectator = 1;
+            strcpy(role, "SPECTATOR");
+        } else if (strcmp(argv[i], "uart") == 0 && i + 1 < argc) {
+            useUart = 1;
+            snprintf(uartPort, sizeof(uartPort), "%s", argv[i + 1]);
+            i++;
+        } else if (strcmp(argv[i], "baud") == 0 && i + 1 < argc) {
+            uartBaud = atoi(argv[i + 1]);
+            i++;
+        }
     }
 
     init_game_state(&state);
@@ -347,6 +412,19 @@ int main(int argc, char *argv[]) {
 
     localPlayerId = parse_welcome_player_id(buffer);
 
+    if (useUart && !isSpectator) {
+        uart = serial_open(uartPort, uartBaud);
+
+    	if (uart == SERIAL_INVALID) {
+            printf("No se pudo abrir el puerto UART %s a %d baudios.\n", uartPort, uartBaud);
+            close_socket(sockfd);
+            cleanup_sockets();
+            return 1;
+   	}
+
+        printf("Control fisico UART activo en %s a %d baudios.\n", uartPort, uartBaud);
+        }
+
     InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "spaCEinvaders - Cliente grafico C");
     SetTargetFPS(30);
 
@@ -367,6 +445,15 @@ int main(int argc, char *argv[]) {
 
         if (IsKeyPressed(KEY_F) || IsKeyPressed(KEY_SPACE)) {
             send_action_graphic(sockfd, localPlayerId, "FIRE");
+        }
+    }
+
+
+    if (!isSpectator && uart != SERIAL_INVALID) {
+        char uartCommand[64];
+
+        while (serial_read_command(uart, uartCommand, sizeof(uartCommand))) {
+            handle_uart_command(sockfd, localPlayerId, uartCommand);
         }
     }
 
@@ -404,7 +491,10 @@ int main(int argc, char *argv[]) {
     EndDrawing();
 }
 
-
+    if (uart != SERIAL_INVALID) {
+        serial_close(uart);
+    }
+    
     CloseWindow();
     close_socket(sockfd);
     cleanup_sockets();
