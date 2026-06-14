@@ -19,8 +19,8 @@
 #define WORLD_HEIGHT 480
 
 /* Tamano de la vista en consola */
-#define SCREEN_WIDTH 72
-#define SCREEN_HEIGHT 15
+#define SCREEN_WIDTH 100
+#define SCREEN_HEIGHT 30
 
 /* Controles */
 #define KEY_LEFT 'a'

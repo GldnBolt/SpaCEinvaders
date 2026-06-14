@@ -8,9 +8,7 @@
 
 
 static void clear_screen(void) {
-    /* Regresa al inicio y limpia la pantalla visible.
-       En main.c se usa pantalla alterna, por eso no ensucia el historial. */
-    printf("\033[H\033[2J");
+    printf("\033[H");
     fflush(stdout);
 }
 
