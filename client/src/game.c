@@ -245,11 +245,58 @@ static void put_char(char board[SCREEN_HEIGHT][SCREEN_WIDTH + 1], int x, int y, 
     }
 }
 
-static char alien_symbol(int points) {
-    if (points >= 40) return 'W';  /* pulpo / mayor puntaje */
-    if (points >= 20) return 'M';  /* cangrejo */
-    return 'v';                    /* calamar */
+static void put_text(char board[SCREEN_HEIGHT][SCREEN_WIDTH + 1], int x, int y, const char *text) {
+    int i = 0;
+
+    while (text[i] != '\0') {
+        put_char(board, x + i, y, text[i]);
+        i++;
+    }
 }
+
+static void draw_alien(char board[SCREEN_HEIGHT][SCREEN_WIDTH + 1], int x, int y, int points) {
+    if (points >= 40) {
+        put_text(board, x - 1, y, "WWW");
+    } else if (points >= 20) {
+        put_text(board, x - 1, y, "MMM");
+    } else {
+        put_text(board, x - 1, y, "vvv");
+    }
+}
+
+static void draw_bunker(char board[SCREEN_HEIGHT][SCREEN_WIDTH + 1], int x, int y, int health) {
+    if (health <= 0) {
+        return;
+    }
+
+    if (health > 70) {
+        put_text(board, x - 2, y - 1, " ### ");
+        put_text(board, x - 2, y,     "#####");
+        put_text(board, x - 2, y + 1, "## ##");
+    } else if (health > 35) {
+        put_text(board, x - 2, y - 1, " +++ ");
+        put_text(board, x - 2, y,     "+++++");
+        put_text(board, x - 2, y + 1, "+  + ");
+    } else {
+        put_text(board, x - 2, y - 1, " ... ");
+        put_text(board, x - 2, y,     ".. ..");
+    }
+}
+
+static void draw_player(char board[SCREEN_HEIGHT][SCREEN_WIDTH + 1], int x, int y, int isLocalPlayer) {
+    if (isLocalPlayer) {
+        put_text(board, x - 1, y - 1, " A ");
+        put_text(board, x - 1, y,     "/A\\");
+    } else {
+        put_text(board, x - 1, y - 1, " V ");
+        put_text(board, x - 1, y,     "/V\\");
+    }
+}
+
+static void draw_ufo(char board[SCREEN_HEIGHT][SCREEN_WIDTH + 1], int x, int y) {
+    put_text(board, x - 2, y, "<UUU>");
+}
+
 
 void render_game(const GameState *state, int localPlayerId, const char *role) {
     char board[SCREEN_HEIGHT][SCREEN_WIDTH + 1];
@@ -276,22 +323,17 @@ void render_game(const GameState *state, int localPlayerId, const char *role) {
     for (int i = 0; i < state->alienCount; i++) {
         const Alien *alien = &state->aliens[i];
         if (alien->alive) {
-            put_char(board, scale_x(alien->x), scale_y(alien->y), alien_symbol(alien->points));
+            draw_alien(board, scale_x(alien->x), scale_y(alien->y), alien->points);
         }
     }
 
     for (int i = 0; i < state->bunkerCount; i++) {
-        const Bunker *bunker = &state->bunkers[i];
-        char symbol = bunker->health > 70 ? '#' : (bunker->health > 35 ? '+' : (bunker->health > 0 ? '.' : ' '));
-        int bx = scale_x(bunker->x);
-        int by = scale_y(bunker->y);
-        put_char(board, bx - 1, by, symbol);
-        put_char(board, bx, by, symbol);
-        put_char(board, bx + 1, by, symbol);
+    const Bunker *bunker = &state->bunkers[i];
+    draw_bunker(board, scale_x(bunker->x), scale_y(bunker->y), bunker->health);
     }
 
     if (state->ufo.active) {
-        put_char(board, scale_x(state->ufo.x), scale_y(state->ufo.y), 'U');
+        draw_ufo(board, scale_x(state->ufo.x), scale_y(state->ufo.y));
     }
 
     for (int i = 0; i < state->playerShotCount; i++) {
@@ -303,9 +345,9 @@ void render_game(const GameState *state, int localPlayerId, const char *role) {
     }
 
     for (int i = 0; i < state->playerCount; i++) {
-        const Player *player = &state->players[i];
-        char symbol = player->id == localPlayerId ? 'A' : 'V';
-        put_char(board, scale_x(player->x), scale_y(player->y), symbol);
+    const Player *player = &state->players[i];
+    int isLocalPlayer = player->id == localPlayerId;
+    draw_player(board, scale_x(player->x), scale_y(player->y), isLocalPlayer);
     }
 
     clear_screen();
