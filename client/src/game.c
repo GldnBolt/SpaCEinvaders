@@ -7,6 +7,16 @@
 #include "game.h"
 
 
+
+/*
+ * Manejo del estado del juego en el cliente.
+ *
+ * Aquí se procesan y almacenan los datos recibidos desde el servidor,
+ * como jugadores, aliens, proyectiles, bunkers, ovni, vidas y puntajes.
+ */
+
+
+
 static void clear_screen(void) {
     printf("\033[H");
     fflush(stdout);

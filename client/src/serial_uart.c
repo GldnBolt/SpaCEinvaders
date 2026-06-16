@@ -8,6 +8,15 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
+/*
+ * Lectura UART para el control físico.
+ *
+ * Permite leer comandos enviados por la ESP32 mediante el puerto serial.
+ * Los comandos L, R y F se interpretan como izquierda, derecha y disparo.
+ */
+
+
+
 static void print_windows_error(const char *context) {
     DWORD errorCode = GetLastError();
     char *message = NULL;

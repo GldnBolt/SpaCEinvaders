@@ -10,6 +10,18 @@
 
 
 /*
+ * Cliente gráfico de spaCEinvaders.
+ *
+ * Este archivo contiene la interfaz gráfica del cliente en C utilizando raylib.
+ * Se encarga de conectarse al servidor, recibir el estado del juego,
+ * dibujarlo en pantalla y enviar las acciones del jugador.
+ *
+ * La lógica principal del juego se mantiene en el servidor Java.
+ */
+
+
+
+/*
    No incluimos windows.h, winsock2.h ni network.h aquí porque chocan con raylib.
    ya existen en client/src/network.c.
 */

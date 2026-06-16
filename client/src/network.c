@@ -16,6 +16,16 @@
 #include <string.h>
 #include "network.h"
 
+/*
+ * Funciones de red del cliente.
+ *
+ * Este archivo contiene la conexión por sockets con el servidor Java,
+ * el envío de acciones del jugador y la recepción del estado actualizado
+ * de la partida.
+ */
+
+
+
 int init_sockets(void) {
 #ifdef _WIN32
     WSADATA wsaData;

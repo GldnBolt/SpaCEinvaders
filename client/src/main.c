@@ -18,6 +18,20 @@
 #include "network.h"
 
 #ifndef _WIN32
+
+
+/*
+ * Cliente de consola de spaCEinvaders.
+ *
+ * Este archivo contiene una versión base del cliente en C para conectarse
+ * al servidor, recibir el estado del juego y enviar acciones del jugador
+ * desde terminal. Fue utilizado como apoyo para probar la comunicación
+ * cliente-servidor antes de integrar el cliente gráfico con raylib.
+ *
+ * La versión gráfica principal se encuentra en client/graphics/main_raylib.c.
+ */
+
+
 static struct termios originalTerminal;
 
 static void enable_raw_keyboard(void) {
