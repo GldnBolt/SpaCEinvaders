@@ -1,0 +1,8 @@
+target/
+client/client.exe
+client/*.exe
+client/graphics/*.exe
+*.class
+*.jar
+.idea/
+client/.idea/
